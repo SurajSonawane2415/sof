@@ -194,6 +194,10 @@ __cold int dai_set_config(struct dai *dai, struct ipc_config_dai *common_config,
 		cfg.type = DAI_IMX_MICFIL;
 		cfg_params = &sof_cfg->micfil;
 		break;
+	case SOF_DAI_VIRTUAL:
+		cfg.type = DAI_VIRTUAL;
+		cfg_params = &sof_cfg->virtual;
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -528,7 +532,9 @@ __cold int dai_common_new(struct dai_data *dd, struct comp_dev *dev,
 	case SOF_DAI_INTEL_HDA:
 		perf_type = IO_PERF_HDA_ID;
 		break;
-
+	case SOF_DAI_VIRTUAL:
+		perf_type = IO_PERF_INVALID_ID; // or skip
+		break;
 	default:
 		perf_type = IO_PERF_INVALID_ID;
 		comp_warn(dev, "Unsupported DAI type");

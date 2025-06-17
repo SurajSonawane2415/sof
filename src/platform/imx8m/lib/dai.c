@@ -7,6 +7,7 @@
 #include <sof/common.h>
 #include <sof/drivers/sai.h>
 #include <sof/drivers/micfil.h>
+#include <sof/drivers/virtual.h> //need to fix this
 
 #include <sof/lib/dai.h>
 #include <sof/lib/memory.h>
@@ -164,6 +165,18 @@ static SHARED_DATA struct dai micfil[] = {
 },
 };
 
+static SHARED_DATA struct dai virtual_dai[] = {
+{
+	.index = 0,
+	.plat_data = {
+		.base = 0, /* no base */
+		.fifo[SOF_IPC_STREAM_PLAYBACK] = { 0 },
+		.fifo[SOF_IPC_STREAM_CAPTURE] = { 0 },
+	},
+	.drv = &virtual_dai_driver,
+},
+};
+
 const struct dai_type_info dti[] = {
 	{
 		.type = SOF_DAI_IMX_SAI,
@@ -175,7 +188,11 @@ const struct dai_type_info dti[] = {
 		.dai_array = cache_to_uncache_init((struct dai *)micfil),
 		.num_dais = ARRAY_SIZE(micfil)
 	},
-
+	{
+		.type = SOF_DAI_VIRTUAL,
+		.dai_array = cache_to_uncache_init((struct dai *)virtual_dai),
+		.num_dais = ARRAY_SIZE(virtual_dai)
+	},
 };
 
 const struct dai_info lib_dai = {

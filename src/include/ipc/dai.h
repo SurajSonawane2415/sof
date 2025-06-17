@@ -94,7 +94,8 @@ enum sof_ipc_dai_type {
 	SOF_DAI_AMD_SP_VIRTUAL,		/**<Amd SP VIRTUAL */
 	SOF_DAI_AMD_HS_VIRTUAL,		/**<Amd HS VIRTUAL */
 	SOF_DAI_IMX_MICFIL,		/**< i.MX MICFIL */
-	SOF_DAI_AMD_SW_AUDIO		/**<Amd SW AUDIO */
+	SOF_DAI_AMD_SW_AUDIO,		/**<Amd SW AUDIO */
+	SOF_DAI_VIRTUAL			/**< Virtual DAI for testing/debugging*/
 };
 
 /* general purpose DAI configuration */
@@ -126,6 +127,7 @@ struct sof_ipc_dai_config {
 		struct sof_ipc_dai_afe_params afe;
 		struct sof_ipc_dai_micfil_params micfil;
 		struct sof_ipc_dai_acp_sdw_params acpsdw;
+		struct sof_ipc_dai_virtual_params virtual_dai;
 	};
 } __attribute__((packed, aligned(4)));
 
