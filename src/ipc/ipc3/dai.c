@@ -321,6 +321,7 @@ int dai_config(struct dai_data *dd, struct comp_dev *dev, struct ipc_config_dai 
 
 	dd->dai_dev = dev;
 
+#ifndef CONFIG_DAI_VIRTUAL
 	switch (config->flags & SOF_DAI_CONFIG_FLAGS_CMD_MASK) {
 	case SOF_DAI_CONFIG_FLAGS_HW_PARAMS:
 		/* set the delayed_dma_stop flag */
@@ -362,6 +363,8 @@ int dai_config(struct dai_data *dd, struct comp_dev *dev, struct ipc_config_dai 
 	default:
 		break;
 	}
+#endif /* CONFIG_DAI_VIRTUAL */
+
 #if CONFIG_COMP_DAI_GROUP
 	if (config->group_id) {
 		ret = dai_assign_group(dd, dev, config->group_id);
@@ -370,9 +373,12 @@ int dai_config(struct dai_data *dd, struct comp_dev *dev, struct ipc_config_dai 
 			return ret;
 	}
 #endif
+
+#ifndef CONFIG_DAI_VIRTUAL
 	/* do nothing for asking for channel free, for compatibility. */
 	if (dai_config_dma_channel(dd, dev, spec_config) == SOF_DMA_CHAN_INVALID)
 		return 0;
+#endif
 
 	/* allocated dai_config if not yet */
 	if (!dd->dai_spec_config) {
