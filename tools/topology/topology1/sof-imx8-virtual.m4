@@ -1,9 +1,12 @@
-# Topology for i.MX8MP board using Virtual DAI (no physical codec)
+#
+# Topology for i.MX8 board using Virtual DAI (no physical codec)
+#
 
 # Include topology builder
 include(`utils.m4')
 include(`dai.m4')
 include(`pipeline.m4')
+include(`virtual-dai.m4')
 include(`pcm.m4')
 include(`buffer.m4')
 
@@ -19,10 +22,8 @@ include(`platform/imx/imx8.m4')
 #
 # Define the pipelines
 #
-# PCM0 <----> `PPROC' <-----> `VIRTUAL_DAI_INDEX' (`NOCODEC')
+# PCM0 ---> Volume ---> Virtual DAI0 (NoCodec)
 #
-
-ifdef(`DMA_DOMAIN', `define(`SCHEDULE_DOMAIN', SCHEDULE_TIME_DOMAIN_DMA)', `define(`SCHEDULE_DOMAIN', SCHEDULE_TIME_DOMAIN_TIMER)')
 
 dnl PIPELINE_PCM_ADD(pipeline,
 dnl     pipe id, pcm, max channels, format,
@@ -30,57 +31,41 @@ dnl     period, priority, core,
 dnl     pcm_min_rate, pcm_max_rate, pipeline_rate,
 dnl     time_domain, sched_comp)
 
-# Low Latency playback pipeline 1 on PCM 0 using max 2 channels of s32le.
-# Set 1000us deadline with priority 0 on core 0
-PIPELINE_PCM_ADD(sof/pipe-`PPROC'-playback.m4,
-	1, 0, 2, s32le,
+# Low Latency playback pipeline 1 on PCM 0 using max 2 channels of s24le
+PIPELINE_PCM_ADD(sof/pipe-volume-playback.m4,
+	1, 0, 2, s24le,
 	1000, 0, 0,
-	`RATE', `RATE', `RATE')
+	8000, 96000, 48000)
 
-# Low Latency capture pipeline 2 on PCM 0 using max 2 channels of s32le.
-# Set 1000us deadline with priority 0 on core 0
-PIPELINE_PCM_ADD(sof/pipe-volume-capture.m4,
-	2, 0, 2, s32le,
-	1000, 0, 0,
-	`RATE', `RATE', `RATE')
 #
 # DAIs configuration
 #
 
-# define STREAM_NAME, based on CODEC name
-define(`STREAM_NAME',
-	`ifelse(CODEC, `wm8960', `-wm8960-hifi',
-			CODEC, `wm8904', `-wm8904-hifi',
-			CODEC, `wm8962', `-wm8962',
-			`fatal_error(`Codec not supported.')')')
-
-# define DAI BE dai_link name
-define(`DAI_BE_NAME', concat(`virtual', VIRTUAL_DAI_INDEX))
-
 dnl DAI_ADD(pipeline,
 dnl     pipe id, dai type, dai_index, dai_be,
 dnl     buffer, periods, format,
-dnl     period, priority, core, time_domain)
+dnl     deadline, priority, core, time_domain)
 
-# playback DAI is VIRTUAL_DAI_INDEX using 2 periods
-# Buffers use s32le format, with 48 frame per 1000us on core 0 with priority 0
 DAI_ADD(sof/pipe-dai-playback.m4,
-	1, VIRTUAL_DAI, VIRTUAL_DAI_INDEX, DAI_BE_NAME,
-	PIPELINE_SOURCE_1, 2, s32le,
-	1000, 0, 0, SCHEDULE_DOMAIN)
+	1, DAI_VIRTUAL, 0, NoCodec-0,
+	PIPELINE_SOURCE_1, 2, s24le,
+	1000, 0, 0, SCHEDULE_TIME_DOMAIN_TIMER)
 
-# capture DAI is VIRTUAL_DAI_INDEX using 2 periods
-# Buffers use s32le format, with 48 frame per 1000us on core 0 with priority 0
-DAI_ADD(sof/pipe-dai-capture.m4,
-	2, VIRTUAL_DAI, VIRTUAL_DAI_INDEX, DAI_BE_NAME,
-	PIPELINE_SINK_2, 2, s32le,
-	1000, 0, 0, SCHEDULE_DOMAIN)
+#
+# PCM interface
+#
 
+dnl PCM_PLAYBACK_ADD(name, pcm_id, playback)
+PCM_PLAYBACK_ADD(Port0, 0, PIPELINE_PCM_1)
 
-# PCM Low Latency, id 0
+#
+# DAI Configuration
+#
 
-dnl PCM_DUPLEX_ADD(name, pcm_id, playback, capture)
-PCM_DUPLEX_ADD(Port0, 0, PIPELINE_PCM_1, PIPELINE_PCM_2)
-
-dnl DAI_CONFIG(type, idx, link_id, name, sai_config)
-DAI_CONFIG(VIRTUAL_DAI, 0, 0, NoCodec-0)
+dnl DAI_CONFIG(type, dai_index, link_id, name, config)
+DAI_CONFIG(DAI_VIRTUAL, 0, 0, NoCodec-0,
+	DAI_VIRTUAL_CONFIG(I2S, DAI_VIRTUAL_CLOCK(mclk, 0, dai_provider),
+		DAI_VIRTUAL_CLOCK(bclk, 0, dai_provider),
+		DAI_VIRTUAL_CLOCK(fsync, 0, dai_provider),
+		DAI_VIRTUAL_TDM(2, 32, 3, 3),
+		DAI_VIRTUAL_CONFIG_DATA(DAI_VIRTUAL, 0, 0)))

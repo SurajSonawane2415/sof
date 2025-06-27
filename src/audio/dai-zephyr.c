@@ -196,7 +196,7 @@ __cold int dai_set_config(struct dai *dai, struct ipc_config_dai *common_config,
 		break;
 	case SOF_DAI_VIRTUAL:
 		cfg.type = DAI_VIRTUAL;
-		cfg_params = &sof_cfg->virtual;
+		cfg_params = &sof_cfg->virtual_dai;
 		break;
 	default:
 		return -EINVAL;
@@ -1334,9 +1334,9 @@ static int dai_comp_trigger_internal(struct dai_data *dd, struct comp_dev *dev, 
 		if (!(dd->dai->dma_caps & SOF_DMA_CAP_HDA))
 			audio_stream_reset(&dd->dma_buffer->stream);
 #endif
-#ifndef CONFIG_DAI_VIRTUAL
 		/* only start the DAI if we are not XRUN handling */
 		if (dd->xrun == 0) {
+#ifndef CONFIG_DAI_VIRTUAL
 			/* recover valid start position */
 			ret = dma_stop(dd->chan->dma->z_dev, dd->chan->index);
 			if (ret < 0)

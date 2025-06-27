@@ -45,7 +45,7 @@ set(TPLGS
 	"sof-imx8-compr-pcm-cap-wm8960\;sof-imx8-compr-pcm-cap-wm8960"
 	"sof-imx8-compr-wm8960\;sof-imx8-compr-wm8960\;-DCODEC=wm8960\;-DRATE=48000"
 	"sof-imx8-compr-wm8960\;sof-imx8-compr-wm8962\;-DCODEC=wm8962\;-DRATE=48000"
-	"sof-imx8-virtual\;sof-imx8-virtual;-DVIRTUAL_DAI_INDEX=0"
+	"sof-imx8-virtual\;sof-imx8-virtual"
 	## end i.MX8 (i.MX8QM and i.MX8QXP) topologies
 
 	## i.MX8MP topologies

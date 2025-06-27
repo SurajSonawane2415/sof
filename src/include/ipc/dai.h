@@ -77,6 +77,19 @@
 #define SOF_DAI_QUIRK_IS_SET(flags, quirk) \
 	(((flags & SOF_DAI_CONFIG_FLAGS_QUIRK_MASK) >> SOF_DAI_CONFIG_FLAGS_QUIRK_SHIFT) & quirk)
 
+/* Virtual DAI Configuration Request - SOF_IPC_DAI_VIRTUAL_CONFIG */
+struct sof_ipc_dai_virtual_params {
+	uint32_t reserved0;
+
+	/* Virtual DAI may simulate rate and channel info if needed */
+	uint32_t rate;         /* Sample rate in Hz */
+	uint16_t channels;     /* Number of channels */
+	uint16_t reserved1;    /* Alignment padding */
+
+	/* Reserved fields to align with common DAI config layout */
+	uint32_t reserved2[4]; /* Unused, for future extension or alignment */
+} __attribute__((packed, aligned(4)));
+
 /** \brief Types of DAI */
 enum sof_ipc_dai_type {
 	SOF_DAI_INTEL_NONE = 0,		/**< None */

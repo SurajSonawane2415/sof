@@ -157,3 +157,7 @@ SectionVendorTokens."sof_acp_sdw_tokens" {
 	SOF_TKN_AMD_ACP_SDW_SAMPLERATE		"2100"
 	SOF_TKN_AMD_ACP_SDW_CH			"2101"
 }
+
+SectionVendorTokens."sof_virtual_tokens" {
+	DAI_TKN_VIRTUAL_INDEX		"1900"
+}
