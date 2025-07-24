@@ -77,6 +77,19 @@
 #define SOF_DAI_QUIRK_IS_SET(flags, quirk) \
 	(((flags & SOF_DAI_CONFIG_FLAGS_QUIRK_MASK) >> SOF_DAI_CONFIG_FLAGS_QUIRK_SHIFT) & quirk)
 
+/* Virtual DAI Configuration Request - SOF_IPC_DAI_VIRTUAL_CONFIG */
+struct sof_ipc_dai_virtual_params {
+	uint32_t reserved0;
+
+	/* Virtual DAI may simulate rate and channel info if needed */
+	uint32_t rate;         /* Sample rate in Hz */
+	uint16_t channels;     /* Number of channels */
+	uint16_t reserved1;    /* Alignment padding */
+
+	/* Reserved fields to align with common DAI config layout */
+	uint32_t reserved2[4]; /* Unused, for future extension or alignment */
+} __attribute__((packed, aligned(4)));
+
 /** \brief Types of DAI */
 enum sof_ipc_dai_type {
 	SOF_DAI_INTEL_NONE = 0,		/**< None */
@@ -94,7 +107,8 @@ enum sof_ipc_dai_type {
 	SOF_DAI_AMD_SP_VIRTUAL,		/**<Amd SP VIRTUAL */
 	SOF_DAI_AMD_HS_VIRTUAL,		/**<Amd HS VIRTUAL */
 	SOF_DAI_IMX_MICFIL,		/**< i.MX MICFIL */
-	SOF_DAI_AMD_SW_AUDIO		/**<Amd SW AUDIO */
+	SOF_DAI_AMD_SW_AUDIO,		/**<Amd SW AUDIO */
+	SOF_DAI_VIRTUAL			/**< Virtual DAI for testing/debugging*/
 };
 
 /* general purpose DAI configuration */
@@ -126,6 +140,7 @@ struct sof_ipc_dai_config {
 		struct sof_ipc_dai_afe_params afe;
 		struct sof_ipc_dai_micfil_params micfil;
 		struct sof_ipc_dai_acp_sdw_params acpsdw;
+		struct sof_ipc_dai_virtual_params virtual_dai;
 	};
 } __attribute__((packed, aligned(4)));
 

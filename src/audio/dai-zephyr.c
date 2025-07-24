@@ -194,6 +194,10 @@ __cold int dai_set_config(struct dai *dai, struct ipc_config_dai *common_config,
 		cfg.type = DAI_IMX_MICFIL;
 		cfg_params = &sof_cfg->micfil;
 		break;
+	case SOF_DAI_VIRTUAL:
+		cfg.type = DAI_VIRTUAL;
+		cfg_params = &sof_cfg->virtual_dai;
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -491,6 +495,12 @@ __cold int dai_common_new(struct dai_data *dd, struct comp_dev *dev,
 
 	dd->ipc_config = *dai_cfg;
 
+#ifdef CONFIG_DAI_VIRTUAL
+	tr_info(&dai_tr, "DAI: Virtual - skipping dma get");
+	k_spinlock_init(&dd->dai->lock);
+	return 0;
+#endif
+
 	/* request GP LP DMA with shared access privilege */
 	dir = dai_cfg->direction == SOF_IPC_STREAM_PLAYBACK ?
 		SOF_DMA_DIR_MEM_TO_DEV : SOF_DMA_DIR_DEV_TO_MEM;
@@ -528,7 +538,6 @@ __cold int dai_common_new(struct dai_data *dd, struct comp_dev *dev,
 	case SOF_DAI_INTEL_HDA:
 		perf_type = IO_PERF_HDA_ID;
 		break;
-
 	default:
 		perf_type = IO_PERF_INVALID_ID;
 		comp_warn(dev, "Unsupported DAI type");
@@ -557,6 +566,7 @@ __cold static struct comp_dev *dai_new(const struct comp_driver *drv,
 				       const struct comp_ipc_config *config,
 				       const void *spec)
 {
+	/*no need skip anything in dai_new() — it's generic allocation logic and fine for Virtual DAI.*/
 	struct comp_dev *dev;
 	const struct ipc_config_dai *dai_cfg = spec;
 	struct dai_data *dd;
@@ -1285,23 +1295,27 @@ static int dai_comp_trigger_internal(struct dai_data *dd, struct comp_dev *dev, 
 
 		/* only start the DAI if we are not XRUN handling */
 		if (dd->xrun == 0) {
+#ifndef CONFIG_DAI_VIRTUAL
 			ret = dma_start(dd->chan->dma->z_dev, dd->chan->index);
 			if (ret < 0)
 				return ret;
-
+#endif
 			/* start the DAI */
 			dai_trigger_op(dd->dai, cmd, dev->direction);
 		} else {
 			dd->xrun = 0;
 		}
 
+#ifndef CONFIG_DAI_VIRTUAL
 		platform_dai_wallclock(dev, &dd->wallclock);
+#endif
 		break;
 	case COMP_TRIGGER_RELEASE:
 		/* before release, we clear the buffer data to 0s,
 		 * then there is no history data sent out after release.
 		 * this is only supported at capture mode.
 		 */
+#ifndef CONFIG_DAI_VIRTUAL
 		if (dev->direction == SOF_IPC_STREAM_CAPTURE) {
 			buffer_zero(dd->dma_buffer);
 		}
@@ -1319,9 +1333,10 @@ static int dai_comp_trigger_internal(struct dai_data *dd, struct comp_dev *dev, 
 		 */
 		if (!(dd->dai->dma_caps & SOF_DMA_CAP_HDA))
 			audio_stream_reset(&dd->dma_buffer->stream);
-
+#endif
 		/* only start the DAI if we are not XRUN handling */
 		if (dd->xrun == 0) {
+#ifndef CONFIG_DAI_VIRTUAL
 			/* recover valid start position */
 			ret = dma_stop(dd->chan->dma->z_dev, dd->chan->index);
 			if (ret < 0)
@@ -1335,14 +1350,16 @@ static int dai_comp_trigger_internal(struct dai_data *dd, struct comp_dev *dev, 
 			ret = dma_start(dd->chan->dma->z_dev, dd->chan->index);
 			if (ret < 0)
 				return ret;
-
+#endif
 			/* start the DAI */
 			dai_trigger_op(dd->dai, cmd, dev->direction);
 		} else {
 			dd->xrun = 0;
 		}
 
+#ifndef CONFIG_DAI_VIRTUAL
 		platform_dai_wallclock(dev, &dd->wallclock);
+#endif
 		break;
 	case COMP_TRIGGER_XRUN:
 		comp_info(dev, "XRUN");
@@ -1360,25 +1377,33 @@ static int dai_comp_trigger_internal(struct dai_data *dd, struct comp_dev *dev, 
  * as soon as possible.
  */
 #if CONFIG_COMP_DAI_STOP_TRIGGER_ORDER_REVERSE
+#ifndef CONFIG_DAI_VIRTUAL
 		ret = dma_stop(dd->chan->dma->z_dev, dd->chan->index);
+#endif
 		dai_trigger_op(dd->dai, cmd, dev->direction);
 #else
 		dai_trigger_op(dd->dai, cmd, dev->direction);
+#ifndef CONFIG_DAI_VIRTUAL
 		ret = dma_stop(dd->chan->dma->z_dev, dd->chan->index);
 		if (ret) {
 			comp_warn(dev, "dma was stopped earlier");
 			ret = 0;
 		}
 #endif
+#endif
 		break;
 	case COMP_TRIGGER_PAUSE:
 		comp_dbg(dev, "PAUSE");
 #if CONFIG_COMP_DAI_STOP_TRIGGER_ORDER_REVERSE
+#ifndef CONFIG_DAI_VIRTUAL
 		ret = dma_suspend(dd->chan->dma->z_dev, dd->chan->index);
+#endif
 		dai_trigger_op(dd->dai, cmd, dev->direction);
 #else
 		dai_trigger_op(dd->dai, cmd, dev->direction);
+#ifndef CONFIG_DAI_VIRTUAL
 		ret = dma_suspend(dd->chan->dma->z_dev, dd->chan->index);
+#endif
 #endif
 		break;
 	case COMP_TRIGGER_PRE_START:

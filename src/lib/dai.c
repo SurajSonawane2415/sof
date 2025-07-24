@@ -185,6 +185,9 @@ const struct device *zephyr_dev[] = {
 #if CONFIG_DAI_NXP_MICFIL
 	DT_FOREACH_STATUS_OKAY(nxp_dai_micfil, GET_DEVICE_LIST)
 #endif
+#if CONFIG_DAI_VIRTUAL
+	DT_FOREACH_STATUS_OKAY(virtual_dai, GET_DEVICE_LIST)
+#endif
 };
 
 /* convert sof_ipc_dai_type to Zephyr dai_type */
@@ -218,6 +221,8 @@ static int sof_dai_type_to_zephyr(uint32_t type)
 	case SOF_DAI_AMD_HS_VIRTUAL:
 	case SOF_DAI_AMD_SW_AUDIO:
 		return -ENOTSUP;
+	case SOF_DAI_VIRTUAL:
+		return DAI_VIRTUAL;
 	default:
 		return -EINVAL;
 	}
@@ -280,6 +285,8 @@ static void dai_set_device_params(struct dai *d)
 		d->dma_dev = SOF_DMA_DEV_HDA;
 		d->dma_caps = SOF_DMA_CAP_HDA;
 		break;
+	case SOF_DAI_VIRTUAL:
+		break;
 	default:
 		break;
 	}
@@ -291,7 +298,7 @@ struct dai *dai_get(uint32_t type, uint32_t index, uint32_t flags)
 	const struct device *dev;
 	struct dai *d;
 
-	dev = dai_get_device(type, index);
+	dev = dai_get_device(type, index); /* For Virtual DAI: no need to skip dai_get_device() maps that to a Zephyr device*/
 	if (!dev) {
 		tr_err(&dai_tr, "dai_get: failed to get dai with index %d type %d",
 		       index, type);
