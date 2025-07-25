@@ -72,6 +72,7 @@ static int dai_comp_trigger_internal(struct dai_data *dd, struct comp_dev *dev, 
 
 static void dai_atomic_trigger(void *arg, enum notify_id type, void *data)
 {
+	tr_info(&dai_comp_tr, "DAIZ: dai_atomic_trigger()");
 	struct comp_dev *dev = arg;
 	struct dai_data *dd = comp_get_drvdata(dev);
 	struct dai_group *group = dd->group;
@@ -83,6 +84,7 @@ static void dai_atomic_trigger(void *arg, enum notify_id type, void *data)
 /* Assign DAI to a group */
 __cold int dai_assign_group(struct dai_data *dd, struct comp_dev *dev, uint32_t group_id)
 {
+	tr_info(&dai_comp_tr, "DAIZ: dai_assign_group()");
 	assert_can_be_cold();
 
 	if (dd->group) {
@@ -116,6 +118,7 @@ __cold int dai_assign_group(struct dai_data *dd, struct comp_dev *dev, uint32_t 
 
 static int dai_trigger_op(struct dai *dai, int cmd, int direction)
 {
+	tr_info(&dai_comp_tr, "DAIZ: dai_trigger_op()");
 	const struct device *dev = dai->dev;
 	enum dai_trigger_cmd zephyr_cmd;
 
@@ -145,6 +148,7 @@ static int dai_trigger_op(struct dai *dai, int cmd, int direction)
 __cold int dai_set_config(struct dai *dai, struct ipc_config_dai *common_config,
 			  const void *spec_config)
 {
+	tr_info(&dai_comp_tr, "DAIZ: dai_set_config()");
 	const struct device *dev = dai->dev;
 	const struct sof_ipc_dai_config *sof_cfg = spec_config;
 	struct dai_config cfg;
@@ -194,6 +198,10 @@ __cold int dai_set_config(struct dai *dai, struct ipc_config_dai *common_config,
 		cfg.type = DAI_IMX_MICFIL;
 		cfg_params = &sof_cfg->micfil;
 		break;
+	case SOF_DAI_VIRTUAL:
+		cfg.type = DAI_VIRTUAL;
+		cfg_params = &sof_cfg->virtual_dai;
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -204,6 +212,7 @@ __cold int dai_set_config(struct dai *dai, struct ipc_config_dai *common_config,
 /* called from ipc/ipc3/dai.c */
 int dai_get_handshake(struct dai *dai, int direction, int stream_id)
 {
+	tr_info(&dai_comp_tr, "DAIZ: dai_get_handshake()");
 	k_spinlock_key_t key = k_spin_lock(&dai->lock);
 	const struct dai_properties *props = dai_get_properties(dai->dev, direction,
 								stream_id);
@@ -217,6 +226,7 @@ int dai_get_handshake(struct dai *dai, int direction, int stream_id)
 /* called from ipc/ipc3/dai.c and ipc/ipc4/dai.c */
 int dai_get_fifo_depth(struct dai *dai, int direction)
 {
+	tr_info(&dai_comp_tr, "DAIZ: dai_get_fifo_depth()");
 	const struct dai_properties *props;
 	k_spinlock_key_t key;
 	int fifo_depth;
@@ -234,6 +244,7 @@ int dai_get_fifo_depth(struct dai *dai, int direction)
 
 int dai_get_stream_id(struct dai *dai, int direction)
 {
+	tr_info(&dai_comp_tr, "DAIZ: dai_get_stream_id()");
 	k_spinlock_key_t key = k_spin_lock(&dai->lock);
 	const struct dai_properties *props = dai_get_properties(dai->dev, direction, 0);
 	int stream_id = props->stream_id;
@@ -245,6 +256,7 @@ int dai_get_stream_id(struct dai *dai, int direction)
 
 static int dai_get_fifo(struct dai *dai, int direction, int stream_id)
 {
+	tr_info(&dai_comp_tr, "DAIZ: dai_get_fifo()");
 	k_spinlock_key_t key = k_spin_lock(&dai->lock);
 	const struct dai_properties *props = dai_get_properties(dai->dev, direction,
 								stream_id);
@@ -260,6 +272,7 @@ static enum sof_dma_cb_status
 dai_dma_cb(struct dai_data *dd, struct comp_dev *dev, uint32_t bytes,
 	   pcm_converter_func *converter)
 {
+	tr_info(&dai_comp_tr, "DAIZ: dai_dma_cb()");	
 	enum sof_dma_cb_status dma_status = SOF_DMA_CB_STATUS_RELOAD;
 	int ret;
 
@@ -419,6 +432,7 @@ static enum sof_dma_cb_status
 dai_dma_multi_endpoint_cb(struct dai_data *dd, struct comp_dev *dev, uint32_t frames,
 			  struct comp_buffer *multi_endpoint_buffer)
 {
+	tr_info(&dai_comp_tr, "DAIZ: dai_dma_multi_endpoint_cb()");	
 	enum sof_dma_cb_status dma_status = SOF_DMA_CB_STATUS_RELOAD;
 	uint32_t i, bytes;
 
@@ -479,6 +493,7 @@ dai_dma_multi_endpoint_cb(struct dai_data *dd, struct comp_dev *dev, uint32_t fr
 __cold int dai_common_new(struct dai_data *dd, struct comp_dev *dev,
 			  const struct ipc_config_dai *dai_cfg)
 {
+tr_info(&dai_tr, "DAIZ: dai_common_new");	
 	uint32_t dir;
 
 	assert_can_be_cold();
@@ -490,6 +505,9 @@ __cold int dai_common_new(struct dai_data *dd, struct comp_dev *dev,
 	}
 
 	dd->ipc_config = *dai_cfg;
+
+	k_spinlock_init(&dd->dai->lock);
+	return 0;
 
 	/* request GP LP DMA with shared access privilege */
 	dir = dai_cfg->direction == SOF_IPC_STREAM_PLAYBACK ?
@@ -528,7 +546,6 @@ __cold int dai_common_new(struct dai_data *dd, struct comp_dev *dev,
 	case SOF_DAI_INTEL_HDA:
 		perf_type = IO_PERF_HDA_ID;
 		break;
-
 	default:
 		perf_type = IO_PERF_INVALID_ID;
 		comp_warn(dev, "Unsupported DAI type");
@@ -557,6 +574,8 @@ __cold static struct comp_dev *dai_new(const struct comp_driver *drv,
 				       const struct comp_ipc_config *config,
 				       const void *spec)
 {
+	tr_info(&dai_comp_tr, "DAIZ: dai_new()");
+	/*no need skip anything in dai_new() — it's generic allocation logic and fine for Virtual DAI.*/
 	struct comp_dev *dev;
 	const struct ipc_config_dai *dai_cfg = spec;
 	struct dai_data *dd;
@@ -597,6 +616,7 @@ e_data:
 
 __cold void dai_common_free(struct dai_data *dd)
 {
+	tr_info(&dai_comp_tr, "DAIZ: dai_common_free()");
 	assert_can_be_cold();
 
 #ifdef CONFIG_SOF_TELEMETRY_IO_PERFORMANCE_MEASUREMENTS
@@ -622,6 +642,7 @@ __cold void dai_common_free(struct dai_data *dd)
 
 __cold static void dai_free(struct comp_dev *dev)
 {
+	tr_info(&dai_comp_tr, "DAIZ: dai_free()");	
 	struct dai_data *dd = comp_get_drvdata(dev);
 
 	assert_can_be_cold();
@@ -638,6 +659,7 @@ __cold static void dai_free(struct comp_dev *dev)
 int dai_common_get_hw_params(struct dai_data *dd, struct comp_dev *dev,
 				    struct sof_ipc_stream_params *params, int dir)
 {
+	tr_info(&dai_comp_tr, "DAIZ: dai_common_get_hw_params()");	
 	struct dai_config cfg;
 	int ret;
 
@@ -666,6 +688,7 @@ __cold static int dai_comp_get_hw_params(struct comp_dev *dev,
 					 struct sof_ipc_stream_params *params,
 					 int dir)
 {
+	tr_info(&dai_comp_tr, "DAIZ: dai_comp_get_hw_params()");	
 	struct dai_data *dd = comp_get_drvdata(dev);
 
 	assert_can_be_cold();
@@ -676,6 +699,7 @@ __cold static int dai_comp_get_hw_params(struct comp_dev *dev,
 static int dai_verify_params(struct dai_data *dd, struct comp_dev *dev,
 			     struct sof_ipc_stream_params *params)
 {
+	tr_info(&dai_comp_tr, "DAIZ: dai_verify_params()");
 	struct sof_ipc_stream_params hw_params;
 	int ret;
 
@@ -713,6 +737,7 @@ static int dai_verify_params(struct dai_data *dd, struct comp_dev *dev,
 
 static int dai_get_dma_slot(struct dai_data *dd, struct comp_dev *dev, uint32_t *slot)
 {
+	tr_info(&dai_comp_tr, "DAIZ: dai_get_dma_slot()");	
 	struct dai_config cfg;
 	int ret;
 	int hs;
@@ -746,6 +771,7 @@ static int dai_get_dma_slot(struct dai_data *dd, struct comp_dev *dev, uint32_t 
 static int dai_set_sg_config(struct dai_data *dd, struct comp_dev *dev, uint32_t period_bytes,
 			     uint32_t period_count)
 {
+	tr_info(&dai_comp_tr, "DAIZ: dai_set_sg_config()");	
 	struct dma_sg_config *config = &dd->config;
 	uint32_t local_fmt = audio_stream_get_frm_fmt(&dd->local_buffer->stream);
 	uint32_t dma_fmt = audio_stream_get_frm_fmt(&dd->dma_buffer->stream);
@@ -844,6 +870,7 @@ out:
 
 static int dai_set_dma_config(struct dai_data *dd, struct comp_dev *dev)
 {
+	tr_info(&dai_comp_tr, "DAIZ: dai_set_dma_config()");	
 	struct dma_sg_config *config = &dd->config;
 	struct dma_config *dma_cfg;
 	struct dma_block_config *dma_block_cfg;
@@ -924,6 +951,7 @@ static int dai_set_dma_buffer(struct dai_data *dd, struct comp_dev *dev,
 			      const struct sof_ipc_stream_params *params,
 			      uint32_t *pb, uint32_t *pc)
 {
+	tr_info(&dai_comp_tr, "DAIZ: dai_set_dma_buffer()");
 	struct sof_ipc_stream_params hw_params = *params;
 	uint32_t frame_size;
 	uint32_t period_count;
@@ -1044,6 +1072,7 @@ static int dai_set_dma_buffer(struct dai_data *dd, struct comp_dev *dev,
 int dai_common_params(struct dai_data *dd, struct comp_dev *dev,
 		      struct sof_ipc_stream_params *base_cfg_params)
 {
+	tr_info(&dai_comp_tr, "DAIZ: dai_common_params()");
 	struct sof_ipc_stream_params params = *base_cfg_params;
 	struct sof_ipc_stream_params hw_params;
 	struct dma_sg_config *config = &dd->config;
@@ -1116,6 +1145,7 @@ out:
 
 static int dai_params(struct comp_dev *dev, struct sof_ipc_stream_params *params)
 {
+	tr_info(&dai_comp_tr, "DAIZ: dai_params()");	
 	struct dai_data *dd = comp_get_drvdata(dev);
 
 	comp_dbg(dev, "dai_params()");
@@ -1125,6 +1155,7 @@ static int dai_params(struct comp_dev *dev, struct sof_ipc_stream_params *params
 
 int dai_common_config_prepare(struct dai_data *dd, struct comp_dev *dev)
 {
+	tr_info(&dai_comp_tr, "DAIZ: dai_common_config_prepare()");
 	int channel;
 
 	/* cannot configure DAI while active */
@@ -1172,6 +1203,7 @@ int dai_common_config_prepare(struct dai_data *dd, struct comp_dev *dev)
 
 int dai_common_prepare(struct dai_data *dd, struct comp_dev *dev)
 {
+	tr_info(&dai_comp_tr, "DAIZ: dai_common_prepare()");
 	int ret;
 
 	dd->total_data_processed = 0;
@@ -1207,6 +1239,7 @@ int dai_common_prepare(struct dai_data *dd, struct comp_dev *dev)
 
 static int dai_prepare(struct comp_dev *dev)
 {
+	tr_info(&dai_comp_tr, "DAIZ: dai_prepare()");
 	struct dai_data *dd = comp_get_drvdata(dev);
 	int ret;
 
@@ -1228,6 +1261,7 @@ static int dai_prepare(struct comp_dev *dev)
 
 void dai_common_reset(struct dai_data *dd, struct comp_dev *dev)
 {
+	tr_info(&dai_comp_tr, "DAIZ: dai_common_reset()");	
 	struct dma_sg_config *config = &dd->config;
 
 	/*
@@ -1256,6 +1290,7 @@ void dai_common_reset(struct dai_data *dd, struct comp_dev *dev)
 
 static int dai_reset(struct comp_dev *dev)
 {
+	tr_info(&dai_comp_tr, "DAIZ: dai_reset()");
 	struct dai_data *dd = comp_get_drvdata(dev);
 
 	comp_dbg(dev, "dai_reset()");
@@ -1270,6 +1305,7 @@ static int dai_reset(struct comp_dev *dev)
 /* used to pass standard and bespoke command (with data) to component */
 static int dai_comp_trigger_internal(struct dai_data *dd, struct comp_dev *dev, int cmd)
 {
+	tr_info(&dai_comp_tr, "DAIZ: dai_comp_trigger()");	
 	int ret = 0;
 
 	comp_dbg(dev, "command = %u", cmd);
@@ -1288,7 +1324,6 @@ static int dai_comp_trigger_internal(struct dai_data *dd, struct comp_dev *dev, 
 			ret = dma_start(dd->chan->dma->z_dev, dd->chan->index);
 			if (ret < 0)
 				return ret;
-
 			/* start the DAI */
 			dai_trigger_op(dd->dai, cmd, dev->direction);
 		} else {
@@ -1319,7 +1354,6 @@ static int dai_comp_trigger_internal(struct dai_data *dd, struct comp_dev *dev, 
 		 */
 		if (!(dd->dai->dma_caps & SOF_DMA_CAP_HDA))
 			audio_stream_reset(&dd->dma_buffer->stream);
-
 		/* only start the DAI if we are not XRUN handling */
 		if (dd->xrun == 0) {
 			/* recover valid start position */
@@ -1335,7 +1369,6 @@ static int dai_comp_trigger_internal(struct dai_data *dd, struct comp_dev *dev, 
 			ret = dma_start(dd->chan->dma->z_dev, dd->chan->index);
 			if (ret < 0)
 				return ret;
-
 			/* start the DAI */
 			dai_trigger_op(dd->dai, cmd, dev->direction);
 		} else {
@@ -1407,6 +1440,7 @@ static int dai_comp_trigger_internal(struct dai_data *dd, struct comp_dev *dev, 
 
 int dai_common_trigger(struct dai_data *dd, struct comp_dev *dev, int cmd)
 {
+	tr_info(&dai_comp_tr, "DAIZ: dai_common_trigger()");	
 	struct dai_group *group = dd->group;
 	uint32_t irq_flags;
 	int ret = 0;
@@ -1462,6 +1496,7 @@ int dai_common_trigger(struct dai_data *dd, struct comp_dev *dev, int cmd)
 
 static int dai_comp_trigger(struct comp_dev *dev, int cmd)
 {
+	tr_info(&dai_comp_tr, "DAIZ: dai_comp_trigger()");	
 	struct dai_data *dd = comp_get_drvdata(dev);
 
 	return dai_common_trigger(dd, dev, cmd);
@@ -1470,6 +1505,7 @@ static int dai_comp_trigger(struct comp_dev *dev, int cmd)
 /* get status from dma and check for xrun */
 static int dai_get_status(struct comp_dev *dev, struct dai_data *dd, struct dma_status *stat)
 {
+	tr_info(&dai_comp_tr, "DAIZ: dai_get_status()");
 	int ret = dma_get_status(dd->chan->dma->z_dev, dd->chan->index, stat);
 #if CONFIG_XRUN_NOTIFICATIONS_ENABLE
 	if (ret == -EPIPE && !dd->xrun_notification_sent) {
@@ -1496,6 +1532,7 @@ static int dai_get_status(struct comp_dev *dev, struct dai_data *dd, struct dma_
 /* report xrun occurrence */
 static void dai_report_xrun(struct dai_data *dd, struct comp_dev *dev, uint32_t bytes)
 {
+	tr_info(&dai_comp_tr, "DAIZ: dai_report_xrun()");
 	if (dev->direction == SOF_IPC_STREAM_PLAYBACK) {
 		comp_err(dev, "underrun due to no data available");
 		comp_underrun(dev, dd->local_buffer, bytes);
@@ -1510,6 +1547,7 @@ int dai_zephyr_multi_endpoint_copy(struct dai_data **dd, struct comp_dev *dev,
 				   struct comp_buffer *multi_endpoint_buffer,
 				   int num_endpoints)
 {
+	tr_info(&dai_comp_tr, "DAIZ: dai_zephyr_multi_endpoint_copy()");
 	uint32_t avail_bytes = UINT32_MAX;
 	uint32_t free_bytes = UINT32_MAX;
 	uint32_t frames;
@@ -1632,6 +1670,7 @@ int dai_zephyr_multi_endpoint_copy(struct dai_data **dd, struct comp_dev *dev,
 
 static void set_new_local_buffer(struct dai_data *dd, struct comp_dev *dev)
 {
+	tr_info(&dai_comp_tr, "DAIZ: set_new_local_buffer()");	
 	uint32_t dma_fmt = audio_stream_get_frm_fmt(&dd->dma_buffer->stream);
 	uint32_t local_fmt;
 
@@ -1654,6 +1693,7 @@ static void set_new_local_buffer(struct dai_data *dd, struct comp_dev *dev)
 /* copy and process stream data from source to sink buffers */
 int dai_common_copy(struct dai_data *dd, struct comp_dev *dev, pcm_converter_func *converter)
 {
+	tr_info(&dai_comp_tr, "DAIZ: dai_common_copy()");
 	struct dma_status stat;
 	uint32_t avail_bytes;
 	uint32_t free_bytes;
@@ -1824,6 +1864,7 @@ int dai_common_copy(struct dai_data *dd, struct comp_dev *dev, pcm_converter_fun
 
 static int dai_copy(struct comp_dev *dev)
 {
+	tr_info(&dai_comp_tr, "DAIZ: dai_copy()");
 	struct dai_data *dd = comp_get_drvdata(dev);
 
 	/*
@@ -1845,6 +1886,7 @@ static int dai_copy(struct comp_dev *dev)
  */
 int dai_common_ts_config_op(struct dai_data *dd, struct comp_dev *dev)
 {
+	tr_info(&dai_comp_tr, "DAIZ: dai_common_ts_config_op()");
 	struct ipc_config_dai *dai = &dd->ipc_config;
 	struct dai_ts_cfg *cfg = &dd->ts_config;
 
@@ -1880,6 +1922,7 @@ int dai_common_ts_config_op(struct dai_data *dd, struct comp_dev *dev)
 
 static int dai_ts_config_op(struct comp_dev *dev)
 {
+	tr_info(&dai_comp_tr, "DAIZ: dai_common_ts_config_op()");
 	struct dai_data *dd = comp_get_drvdata(dev);
 
 	return dai_common_ts_config_op(dd, dev);
@@ -1887,11 +1930,13 @@ static int dai_ts_config_op(struct comp_dev *dev)
 
 int dai_common_ts_start(struct dai_data *dd, struct comp_dev *dev)
 {
+	tr_info(&dai_comp_tr, "DAIZ: dai_common_ts_start()");
 	return dai_ts_start(dd->dai->dev, (struct dai_ts_cfg *)&dd->ts_config);
 }
 
 static int dai_ts_start_op(struct comp_dev *dev)
 {
+	tr_info(&dai_comp_tr, "DAIZ: dai_ts_start_op()");
 	struct dai_data *dd = comp_get_drvdata(dev);
 
 	comp_dbg(dev, "dai_ts_start()");
@@ -1900,6 +1945,7 @@ static int dai_ts_start_op(struct comp_dev *dev)
 
 int dai_common_ts_get(struct dai_data *dd, struct comp_dev *dev, struct dai_ts_data *tsd)
 {
+	tr_info(&dai_comp_tr, "DAIZ: dai_common_ts_get()");	
 	struct dai_ts_cfg *cfg = (struct dai_ts_cfg *)&dd->ts_config;
 
 	return dai_ts_get(dd->dai->dev, cfg, tsd);
@@ -1907,6 +1953,7 @@ int dai_common_ts_get(struct dai_data *dd, struct comp_dev *dev, struct dai_ts_d
 
 static int dai_ts_get_op(struct comp_dev *dev, struct dai_ts_data *tsd)
 {
+	tr_info(&dai_comp_tr, "DAIZ: dai_ts_get_op()");
 	struct dai_data *dd = comp_get_drvdata(dev);
 
 	comp_dbg(dev, "dai_ts_get()");
@@ -1916,11 +1963,13 @@ static int dai_ts_get_op(struct comp_dev *dev, struct dai_ts_data *tsd)
 
 int dai_common_ts_stop(struct dai_data *dd, struct comp_dev *dev)
 {
+	tr_info(&dai_comp_tr, "DAIZ: dai_common_ts_stop()");
 	return dai_ts_stop(dd->dai->dev, (struct dai_ts_cfg *)&dd->ts_config);
 }
 
 static int dai_ts_stop_op(struct comp_dev *dev)
 {
+	tr_info(&dai_comp_tr, "DAIZ: dai_ts_stop_op()");
 	struct dai_data *dd = comp_get_drvdata(dev);
 
 	comp_dbg(dev, "dai_ts_stop()");
@@ -1930,6 +1979,7 @@ static int dai_ts_stop_op(struct comp_dev *dev)
 
 uint32_t dai_get_init_delay_ms(struct dai *dai)
 {
+	tr_info(&dai_comp_tr, "DAIZ: dai_get_init_delay_ms()");
 	const struct dai_properties *props;
 	k_spinlock_key_t key;
 	uint32_t init_delay;
@@ -1947,6 +1997,7 @@ uint32_t dai_get_init_delay_ms(struct dai *dai)
 
 static uint64_t dai_get_processed_data(struct comp_dev *dev, uint32_t stream_no, bool input)
 {
+	tr_info(&dai_comp_tr, "DAIZ: dai_get_processed_data()");
 	struct dai_data *dd = comp_get_drvdata(dev);
 	uint64_t ret = 0;
 	bool source = dev->direction == SOF_IPC_STREAM_CAPTURE;

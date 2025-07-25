@@ -36,6 +36,7 @@ void dai_set_link_hda_config(uint16_t *link_config,
 
 int dai_config_dma_channel(struct dai_data *dd, struct comp_dev *dev, const void *spec_config)
 {
+	tr_info(&ipc_tr, "DIPC3: dai_config_dma_channel()");
 	const struct sof_ipc_dai_config *config = spec_config;
 	struct ipc_config_dai *dai = &dd->ipc_config;
 	int channel;
@@ -61,6 +62,9 @@ int dai_config_dma_channel(struct dai_data *dd, struct comp_dev *dev, const void
 	case SOF_DAI_IMX_SAI:
 		COMPILER_FALLTHROUGH;
 	case SOF_DAI_IMX_ESAI:
+		handshake = dai_get_handshake(dd->dai, dai->direction,
+					      dd->stream_id);
+	case SOF_DAI_VIRTUAL:
 		handshake = dai_get_handshake(dd->dai, dai->direction,
 					      dd->stream_id);
 /* TODO: remove this when transition to native drivers is complete on all NXP platforms */
@@ -115,6 +119,7 @@ int dai_config_dma_channel(struct dai_data *dd, struct comp_dev *dev, const void
 
 int ipc_dai_data_config(struct dai_data *dd, struct comp_dev *dev)
 {
+	tr_info(&ipc_tr, "DIPC3: ipc_dai_data_config()");
 	struct ipc_config_dai *dai = &dd->ipc_config;
 	struct sof_ipc_dai_config *config = ipc_from_dai_config(dd->dai_spec_config);
 
@@ -171,6 +176,7 @@ int ipc_dai_data_config(struct dai_data *dd, struct comp_dev *dev)
 	case SOF_DAI_IMX_MICFIL:
 	case SOF_DAI_IMX_SAI:
 	case SOF_DAI_IMX_ESAI:
+	case SOF_DAI_VIRTUAL:
 		dd->config.burst_elems = dai_get_fifo_depth(dd->dai, dai->direction);
 		break;
 	case SOF_DAI_AMD_BT:
@@ -207,6 +213,7 @@ int ipc_dai_data_config(struct dai_data *dd, struct comp_dev *dev)
 int ipc_comp_dai_config(struct ipc *ipc, struct ipc_config_dai *common_config,
 			void *spec_config)
 {
+	tr_info(&ipc_tr, "DIPC3: ipc_comp_dai_config()");
 	struct sof_ipc_dai_config __maybe_unused *config = spec_config;
 	bool comp_on_core[CONFIG_CORE_COUNT] = { false };
 	struct sof_ipc_reply reply;
@@ -279,6 +286,7 @@ int ipc_comp_dai_config(struct ipc *ipc, struct ipc_config_dai *common_config,
 
 void dai_dma_release(struct dai_data *dd, struct comp_dev *dev)
 {
+	tr_info(&ipc_tr, "DIPC3: dai_dma_release()");
 	/* cannot configure DAI while active */
 	if (dev->state == COMP_STATE_ACTIVE) {
 		comp_info(dev, "dai_config(): Component is in active state. Ignore resetting");
@@ -302,6 +310,7 @@ void dai_dma_release(struct dai_data *dd, struct comp_dev *dev)
 int dai_config(struct dai_data *dd, struct comp_dev *dev, struct ipc_config_dai *common_config,
 	       const void *spec_config)
 {
+	tr_info(&ipc_tr, "DIPC3: dai_config()");
 	const struct sof_ipc_dai_config *config = spec_config;
 	int ret;
 
@@ -362,6 +371,7 @@ int dai_config(struct dai_data *dd, struct comp_dev *dev, struct ipc_config_dai 
 	default:
 		break;
 	}
+
 #if CONFIG_COMP_DAI_GROUP
 	if (config->group_id) {
 		ret = dai_assign_group(dd, dev, config->group_id);
@@ -370,6 +380,7 @@ int dai_config(struct dai_data *dd, struct comp_dev *dev, struct ipc_config_dai 
 			return ret;
 	}
 #endif
+
 	/* do nothing for asking for channel free, for compatibility. */
 	if (dai_config_dma_channel(dd, dev, spec_config) == SOF_DMA_CHAN_INVALID)
 		return 0;
@@ -396,6 +407,7 @@ int dai_config(struct dai_data *dd, struct comp_dev *dev, struct ipc_config_dai 
 
 int dai_position(struct comp_dev *dev, struct sof_ipc_stream_posn *posn)
 {
+	tr_info(&ipc_tr, "DIPC3: dai_position()");
 	struct dai_data *dd = comp_get_drvdata(dev);
 
 	/* TODO: improve accuracy by adding current DMA position */
@@ -407,6 +419,10 @@ int dai_position(struct comp_dev *dev, struct sof_ipc_stream_posn *posn)
 	return 0;
 }
 
-void dai_dma_position_update(struct dai_data *dd, struct comp_dev *dev) { }
+void dai_dma_position_update(struct dai_data *dd, struct comp_dev *dev) {
+	tr_info(&ipc_tr, "DIPC3: dai_dma_position_update()");
+}
 
-void dai_release_llp_slot(struct dai_data *dd) { }
+void dai_release_llp_slot(struct dai_data *dd) {
+	tr_info(&ipc_tr, "DIPC3: dai_release_llp_slot()");
+}

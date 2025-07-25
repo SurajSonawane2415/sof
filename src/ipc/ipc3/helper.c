@@ -636,6 +636,19 @@ int ipc_comp_connect(struct ipc *ipc, ipc_pipe_comp_connect *_connect)
 	struct ipc_comp_dev *icd_source;
 	struct ipc_comp_dev *icd_sink;
 
+	struct list_item *devlist;
+	tr_info(&ipc_tr, "ipc_comp_connect(): Trying to connect source_id = %u -> sink_id = %u",
+		connect->source_id, connect->sink_id);
+
+	/* Log all currently registered components */
+	tr_info(&ipc_tr, "ipc_comp_connect(): Dumping registered components in ipc->comp_list:");
+	list_for_item(devlist, &ipc->comp_list) {
+		struct ipc_comp_dev *icd = container_of(devlist, struct ipc_comp_dev, list);
+		tr_info(&ipc_tr, "  - Registered Component: id = %u, type = %u", icd->id, icd->type);
+		/* Re-echo the creation log style for debugging consistency */
+		tr_info(&ipc_tr, "ipc_comp_new(): Created component id = %u, type = %u", icd->id, icd->type);
+	}
+
 	/* check whether the components already exist */
 	icd_source = ipc_get_comp_dev(ipc, COMP_TYPE_ANY, connect->source_id);
 	if (!icd_source) {
@@ -650,19 +663,23 @@ int ipc_comp_connect(struct ipc *ipc, ipc_pipe_comp_connect *_connect)
 		       connect->sink_id, connect->source_id);
 		return -EINVAL;
 	}
+	tr_info(&ipc_tr, "ipc_comp_connect(): Found sink component. id = %u, type = %u",
+			icd_sink->id, icd_sink->type);
 
-	/* check source and sink types */
+	/* Connect buffer to component or component to buffer */
 	if (icd_source->type == COMP_TYPE_BUFFER &&
-	    icd_sink->type == COMP_TYPE_COMPONENT)
-		return ipc_buffer_to_comp_connect(icd_source, icd_sink);
-	else if (icd_source->type == COMP_TYPE_COMPONENT &&
-		 icd_sink->type == COMP_TYPE_BUFFER)
-		return ipc_comp_to_buffer_connect(icd_source, icd_sink);
-	else {
-		tr_err(&ipc_tr, "ipc_comp_connect(): invalid source and sink types, connect->source_id = %u, connect->sink_id = %u",
-		       connect->source_id, connect->sink_id);
-		return -EINVAL;
-	}
+	    icd_sink->type == COMP_TYPE_COMPONENT) {
+		tr_info(&ipc_tr, "ipc_comp_connect(): Connecting BUFFER -> COMPONENT");
+ 		return ipc_buffer_to_comp_connect(icd_source, icd_sink);
+	} else if (icd_source->type == COMP_TYPE_COMPONENT &&
+		   icd_sink->type == COMP_TYPE_BUFFER) {
+		tr_info(&ipc_tr, "ipc_comp_connect(): Connecting COMPONENT -> BUFFER");
+ 		return ipc_comp_to_buffer_connect(icd_source, icd_sink);
+	} else {
+		tr_err(&ipc_tr, "ipc_comp_connect(): Invalid source/sink type pair. source_id = %u, sink_id = %u",
+ 		       connect->source_id, connect->sink_id);
+ 		return -EINVAL;
+ 	}
 }
 
 int ipc_comp_new(struct ipc *ipc, ipc_comp *_comp)

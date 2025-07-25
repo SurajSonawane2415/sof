@@ -36,6 +36,7 @@ static struct dai_group_list *groups[CONFIG_CORE_COUNT];
 
 __cold static struct dai_group_list *dai_group_list_get(int core_id)
 {
+	tr_info(&dai_tr, "DAI: dai_group_list_get()");
 	struct dai_group_list *group_list = groups[core_id];
 
 	assert_can_be_cold();
@@ -58,7 +59,8 @@ __cold static struct dai_group_list *dai_group_list_get(int core_id)
 
 __cold static struct dai_group *dai_group_find(uint32_t group_id)
 {
-	struct list_item *dai_groups;
+	
+	tr_info(&dai_tr, "DAI: dai_group_find()");struct list_item *dai_groups;
 	struct dai_group_list *group_list;
 	struct list_item *group_item;
 	struct dai_group *group = NULL;
@@ -87,6 +89,7 @@ __cold static struct dai_group *dai_group_find(uint32_t group_id)
 
 __cold static struct dai_group *dai_group_alloc(void)
 {
+	tr_info(&dai_tr, "DAI: dai_group_alloc()");
 	struct dai_group_list *group_list = dai_group_list_get(cpu_get_id());
 	struct list_item *dai_groups;
 	struct dai_group *group;
@@ -113,6 +116,7 @@ __cold static struct dai_group *dai_group_alloc(void)
 
 __cold struct dai_group *dai_group_get(uint32_t group_id, uint32_t flags)
 {
+	tr_info(&dai_tr, "DAI: dai_group_get()");
 	struct dai_group *group;
 
 	assert_can_be_cold();
@@ -150,6 +154,7 @@ __cold struct dai_group *dai_group_get(uint32_t group_id, uint32_t flags)
 
 __cold void dai_group_put(struct dai_group *group)
 {
+	tr_info(&dai_tr, "DAI: dai_group_put()");
 	assert_can_be_cold();
 
 	group->num_dais--;
@@ -185,11 +190,15 @@ const struct device *zephyr_dev[] = {
 #if CONFIG_DAI_NXP_MICFIL
 	DT_FOREACH_STATUS_OKAY(nxp_dai_micfil, GET_DEVICE_LIST)
 #endif
+#if CONFIG_DAI_VIRTUAL
+	DT_FOREACH_STATUS_OKAY(virtual_dai, GET_DEVICE_LIST)
+#endif
 };
 
 /* convert sof_ipc_dai_type to Zephyr dai_type */
 static int sof_dai_type_to_zephyr(uint32_t type)
 {
+	tr_info(&dai_tr, "DAI: sof_dai_type_to_zephyr()");
 	switch (type) {
 	case SOF_DAI_INTEL_SSP:
 		return DAI_INTEL_SSP;
@@ -218,6 +227,8 @@ static int sof_dai_type_to_zephyr(uint32_t type)
 	case SOF_DAI_AMD_HS_VIRTUAL:
 	case SOF_DAI_AMD_SW_AUDIO:
 		return -ENOTSUP;
+	case SOF_DAI_VIRTUAL:
+		return DAI_VIRTUAL;
 	default:
 		return -EINVAL;
 	}
@@ -225,6 +236,7 @@ static int sof_dai_type_to_zephyr(uint32_t type)
 
 const struct device *dai_get_device(uint32_t type, uint32_t index)
 {
+	tr_info(&dai_tr, "DAI: dai_get_device(): requested type = %d index = %d", type, index);
 	struct dai_config cfg;
 	int z_type;
 	int dir;
@@ -239,18 +251,30 @@ const struct device *dai_get_device(uint32_t type, uint32_t index)
 		return NULL;
 	}
 
+	tr_info(&dai_tr, "DAI: zephyr DAI type mapped = %d", z_type);
+	tr_info(&dai_tr, "DAI: zephyr_dev array size = %d", ARRAY_SIZE(zephyr_dev));
+
 	for (i = 0; i < ARRAY_SIZE(zephyr_dev); i++) {
-		if (dai_config_get(zephyr_dev[i], &cfg, dir))
+		if (dai_config_get(zephyr_dev[i], &cfg, dir)){
+			tr_info(&dai_tr, "DAI: dai_config_get() failed for zephyr_dev[%d]", i);
 			continue;
-		if (cfg.type == z_type && cfg.dai_index == index)
+		}
+
+		tr_info(&dai_tr, "DAI: zephyr_dev[%d] -> cfg.type = %d, cfg.dai_index = %d", i, cfg.type, cfg.dai_index);
+
+		if (cfg.type == z_type && cfg.dai_index == index) {
+			tr_info(&dai_tr, "DAI: Match found at index %d", i);
 			return zephyr_dev[i];
+		}
 	}
 
+	tr_err(&dai_tr, "DAI: No matching Zephyr DAI device found for type = %d index = %d", z_type, index);
 	return NULL;
 }
 
 static void dai_set_device_params(struct dai *d)
 {
+	tr_info(&dai_tr, "DAI: dai_set_device_params()");
 	switch (d->type) {
 	case SOF_DAI_INTEL_SSP:
 		d->dma_dev = SOF_DMA_DEV_SSP;
@@ -280,6 +304,8 @@ static void dai_set_device_params(struct dai *d)
 		d->dma_dev = SOF_DMA_DEV_HDA;
 		d->dma_caps = SOF_DMA_CAP_HDA;
 		break;
+	case SOF_DAI_VIRTUAL:
+		break;
 	default:
 		break;
 	}
@@ -288,10 +314,11 @@ static void dai_set_device_params(struct dai *d)
 /* called from ipc/ipc3/handler.c and some platform.c files */
 struct dai *dai_get(uint32_t type, uint32_t index, uint32_t flags)
 {
+	tr_info(&dai_tr, "DAI: dai_get1()");
 	const struct device *dev;
 	struct dai *d;
 
-	dev = dai_get_device(type, index);
+	dev = dai_get_device(type, index); /* For Virtual DAI: no need to skip dai_get_device() maps that to a Zephyr device*/
 	if (!dev) {
 		tr_err(&dai_tr, "dai_get: failed to get dai with index %d type %d",
 		       index, type);
@@ -321,6 +348,7 @@ struct dai *dai_get(uint32_t type, uint32_t index, uint32_t flags)
 /* called from src/ipc/ipc3/handler.c */
 void dai_put(struct dai *dai)
 {
+	tr_info(&dai_tr, "DAI: dai_put1()");
 	int ret;
 
 	ret = dai_remove(dai->dev);
@@ -334,6 +362,7 @@ void dai_put(struct dai *dai)
 #else
 static inline const struct dai_type_info *dai_find_type(uint32_t type)
 {
+	tr_info(&dai_tr, "DAI: dai_find_type()");
 	const struct dai_info *info = dai_info_get();
 	const struct dai_type_info *dti;
 
@@ -347,6 +376,7 @@ static inline const struct dai_type_info *dai_find_type(uint32_t type)
 
 struct dai *dai_get(uint32_t type, uint32_t index, uint32_t flags)
 {
+	tr_info(&dai_tr, "DAI: dai_get()");
 	int ret = 0;
 	const struct dai_type_info *dti;
 	struct dai *d;
@@ -384,6 +414,7 @@ struct dai *dai_get(uint32_t type, uint32_t index, uint32_t flags)
 
 void dai_put(struct dai *dai)
 {
+	tr_info(&dai_tr, "DAI: dai_put()");
 	int ret;
 	k_spinlock_key_t key;
 
